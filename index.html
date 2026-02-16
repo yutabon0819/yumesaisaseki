@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🐱 コマンドで宝探し！</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', 'Hiragino Sans', 'Meiryo', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      color: #333;
+    }
+
+    h1 {
+      color: #fff;
+      font-size: 2rem;
+      margin-bottom: 5px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .subtitle {
+      color: #e0d0ff;
+      font-size: 0.95rem;
+      margin-bottom: 15px;
+    }
+
+    .game-container {
+      display: flex;
+      gap: 25px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* ===== グリッドマップ ===== */
+    .map-section {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+
+    .map-section h2 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 1.1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 70px);
+      grid-template-rows: repeat(5, 70px);
+      gap: 3px;
+      background: #ddd;
+      border: 3px solid #aaa;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .cell {
+      width: 70px;
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      background: #f0f8e8;
+      position: relative;
+    }
+
+    .cell.wall {
+      background: #8B4513;
+    }
+
+    .cell.wall::after {
+      content: '🧱';
+      font-size: 2rem;
+    }
+
+    .player {
+      font-size: 2.2rem;
+      transition: all 0.3s ease;
+      z-index: 10;
+    }
+
+    .level-info {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 1rem;
+      color: #666;
+    }
+
+    .level-info strong {
+      color: #764ba2;
+      font-size: 1.2rem;
+    }
+
+    /* ===== コマンドパネル ===== */
+    .command-section {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      min-width: 260px;
+    }
+
+    .command-section h2 {
+      text-align: center;
+      margin-bottom: 12px;
+      font-size: 1.1rem;
+    }
+
+    .command-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .cmd-btn {
+      padding: 12px 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cmd-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .cmd-btn:active {
+      transform: translateY(0);
+    }
+
+    .cmd-forward {
+      background: #4CAF50;
+      color: #fff;
+    }
+
+    .cmd-right {
+      background: #2196F3;
+      color: #fff;
+    }
+
+    .cmd-left {
+      background: #FF9800;
+      color: #fff;
+    }
+
+    /* ===== プログラムエリア ===== */
+    .program-area {
+      background: #1e1e2e;
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 120px;
+      max-height: 220px;
+      overflow-y: auto;
+      margin-bottom: 12px;
+    }
+
+    .program-area .label {
+      color: #aaa;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+    }
+
+    .program-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .program-list li {
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .program-list li:hover {
+      opacity: 0.85;
+    }
+
+    .program-list li .step-num {
+      background: rgba(255,255,255,0.25);
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+    }
+
+    .program-list li .remove-btn {
+      margin-left: auto;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .program-list li .remove-btn:hover {
+      background: #e74c3c;
+    }
+
+    .program-list li.highlight {
+      outline: 3px solid #FFD700;
+      outline-offset: 2px;
+    }
+
+    .cmd-color-forward { background: #388E3C; }
+    .cmd-color-right   { background: #1976D2; }
+    .cmd-color-left    { background: #F57C00; }
+
+    /* ===== アクションボタン ===== */
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .run-btn {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      color: #fff;
+    }
+
+    .clear-btn {
+      background: #95a5a6;
+      color: #fff;
+    }
+
+    .reset-btn {
+      background: #8e44ad;
+      color: #fff;
+    }
+
+    /* ===== メッセージ ===== */
+    .message {
+      margin-top: 15px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      text-align: center;
+      display: none;
+    }
+
+    .message.success {
+      display: block;
+      background: #d4edda;
+      color: #155724;
+      border: 2px solid #28a745;
+    }
+
+    .message.fail {
+      display: block;
+      background: #f8d7da;
+      color: #721c24;
+      border: 2px solid #dc3545;
+    }
+
+    .message.info {
+      display: block;
+      background: #fff3cd;
+      color: #856404;
+      border: 2px solid #ffc107;
+    }
+
+    /* ===== ヘルプ ===== */
+    .help-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 18px 22px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      max-width: 740px;
+      margin-top: 15px;
+      font-size: 0.92rem;
+      line-height: 1.7;
+    }
+
+    .help-box h3 {
+      margin-bottom: 8px;
+      color: #764ba2;
+    }
+
+    .help-box ul {
+      padding-left: 20px;
+    }
+
+    .help-box .key {
+      display: inline-block;
+      background: #eee;
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
+
+    /* ===== レスポンシブ ===== */
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: repeat(5, 56px);
+        grid-template-rows: repeat(5, 56px);
+      }
+      .cell { width: 56px; height: 56px; font-size: 1.6rem; }
+      h1 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🐱 コマンドで宝探し！</h1>
+  <p class="subtitle">プログラミングをつかって、ネコを宝物💎まで動かそう！</p>
+
+  <div class="game-container">
+    <!-- マップ -->
+    <div class="map-section">
+      <h2>🗺️ マップ</h2>
+      <div class="grid" id="grid"></div>
+      <div class="level-info">
+        レベル: <strong id="levelDisplay">1</strong> / <span id="maxLevelDisplay">5</span>
+      </div>
+    </div>
+
+    <!-- コマンド -->
+    <div class="command-section">
+      <h2>🎮 コマンドをえらぼう</h2>
+      <div class="command-buttons">
+        <button class="cmd-btn cmd-forward" onclick="addCommand('forward')">⬆️ まえにすすむ</button>
+        <button class="cmd-btn cmd-right" onclick="addCommand('right')">➡️ みぎをむく</button>
+        <button class="cmd-btn cmd-left" onclick="addCommand('left')">⬅️ ひだりをむく</button>
+      </div>
+
+      <div class="program-area">
+        <div class="label">📝 きみのプログラム：</div>
+        <ol class="program-list" id="programList"></ol>
+      </div>
+
+      <div class="action-buttons">
+        <button class="action-btn run-btn" id="runBtn" onclick="runProgram()">▶️ じっこう！</button>
+        <button class="action-btn clear-btn" onclick="clearProgram()">🗑️ ぜんぶけす</button>
+        <button class="action-btn reset-btn" onclick="resetLevel()">🔄 やりなおす</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="message" id="message"></div>
+
+  <div class="help-box">
+    <h3>📖 あそびかた</h3>
+    <ul>
+      <li>🐱ネコを💎宝物のところまで動かそう！</li>
+      <li><span class="key">⬆️ まえにすすむ</span> → ネコが向いている方向に1マスすすむ</li>
+      <li><span class="key">➡️ みぎをむく</span> → ネコが右を向く（その場で回転）</li>
+      <li><span class="key">⬅️ ひだりをむく</span> → ネコが左を向く（その場で回転）</li>
+      <li>🧱かべ にはぶつかれないよ！</li>
+      <li>コマンドを順番にならべて <span class="key">▶️ じっこう！</span> をおそう</li>
+      <li>コマンドをクリックすると、そのコマンドを消せるよ</li>
+    </ul>
+  </div>
+
+  <script>
+    // ===== 方向の定義 =====
+    const DIRS = [
+      { name: 'up',    dx: 0, dy: -1, emoji: '😺', arrow: '⬆️' },
+      { name: 'right', dx: 1, dy: 0,  emoji: '😺', arrow: '➡️' },
+      { name: 'down',  dx: 0, dy: 1,  emoji: '😺', arrow: '⬇️' },
+      { name: 'left',  dx: -1, dy: 0, emoji: '😺', arrow: '⬅️' },
+    ];
+
+    // ===== レベルデータ =====
+    // 0=道, 1=壁, S=スタート, G=ゴール
+    const LEVELS = [
+      {
+        // レベル1: まっすぐ進むだけ
+        grid: [
+          [0,0,0,0,0],
+          [0,1,1,1,0],
+          ['S',0,0,'G',0],
+          [0,1,1,1,0],
+          [0,0,0,0,0],
+        ],
+        startDir: 0, // 上向き→ 実際は右向きに変更
+        hint: '「まえにすすむ」を3回おしてみよう！',
+      },
+      {
+        // レベル2: 曲がる
+        grid: [
+          [0,0,'G',0,0],
+          [0,0,0,0,0],
+          [0,0,1,1,0],
+          [0,0,1,0,0],
+          ['S',0,1,0,0],
+        ],
+        startDir: 0,
+        hint: 'まえに進んで、みぎを向いて、また進もう！',
+      },
+      {
+        // レベル3: L字
+        grid: [
+          [0,0,0,0,'G'],
+          [0,1,1,0,0],
+          [0,1,0,0,1],
+          [0,0,0,1,1],
+          ['S',0,1,1,1],
+        ],
+        startDir: 0,
+        hint: 'まず上に進んで、右に曲がろう！',
+      },
+      {
+        // レベル4: ジグザグ
+        grid: [
+          [0,0,0,0,'G'],
+          [0,1,1,1,0],
+          [0,0,0,1,0],
+          [0,1,0,1,0],
+          ['S',1,0,0,0],
+        ],
+        startDir: 0,
+        hint: 'ジグザグに進む道を見つけよう！',
+      },
+      {
+        // レベル5: 複雑めの道
+        grid: [
+          [0,0,0,0,0],
+          [1,1,1,1,0],
+          ['S',0,0,0,0],
+          [0,1,1,1,1],
+          [0,0,0,0,'G'],
+        ],
+        startDir: 1,
+        hint: '長い道だ！よく考えてコマンドをならべよう！',
+      },
+    ];
+
+    // ===== ゲーム状態 =====
+    let currentLevel = 0;
+    let playerX, playerY, playerDir;
+    let program = [];
+    let isRunning = false;
+
+    // ===== 初期化 =====
+    function initLevel(levelIndex) {
+      currentLevel = levelIndex;
+      const level = LEVELS[levelIndex];
+      program = [];
+      isRunning = false;
+
+      // スタート位置を見つける
+      for (let y = 0; y < 5; y++) {
+        for (let x = 0; x < 5; x++) {
+          if (level.grid[y][x] === 'S') {
+            playerX = x;
+            playerY = y;
+          }
+        }
+      }
+      playerDir = level.startDir;
+
+      document.getElementById('levelDisplay').textContent = levelIndex + 1;
+      document.getElementById('maxLevelDisplay').textContent = LEVELS.length;
+      showMessage('info', `💡 ヒント: ${level.hint}`);
+      renderGrid();
+      renderProgram();
+    }
+
+    // ===== グリッド描画 =====
+    function renderGrid() {
+      const gridEl = document.getElementById('grid');
+      gridEl.innerHTML = '';
+      const level = LEVELS[currentLevel];
+
+      for (let y = 0; y < 5; y++) {
+        for (let x = 0; x < 5; x++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          const val = level.grid[y][x];
+
+          if (val === 1) {
+            cell.classList.add('wall');
+          } else if (val === 'G') {
+            cell.textContent = '💎';
+          } else if (val === 'S' && !(playerX === x && playerY === y)) {
+            cell.textContent = '🚩';
+          }
+
+          // プレイヤーを描画
+          if (playerX === x && playerY === y) {
+            const playerEl = document.createElement('span');
+            playerEl.className = 'player';
+            playerEl.id = 'player';
+            // 方向に応じた回転
+            const rotation = playerDir * 90;
+            playerEl.style.transform = `rotate(${rotation}deg)`;
+            playerEl.textContent = '🐱';
+            cell.textContent = '';
+            cell.appendChild(playerEl);
+          }
+
+          gridEl.appendChild(cell);
+        }
+      }
+    }
+
+    // ===== コマンド追加 =====
+    function addCommand(type) {
+      if (isRunning) return;
+      if (program.length >= 20) {
+        showMessage('info', '⚠️ コマンドは20個までだよ！');
+        return;
+      }
+      program.push(type);
+      renderProgram();
+      hideMessage();
+    }
+
+    // ===== コマンド削除 =====
+    function removeCommand(index) {
+      if (isRunning) return;
+      program.splice(index, 1);
+      renderProgram();
+    }
+
+    // ===== プログラム描画 =====
+    function renderProgram() {
+      const list = document.getElementById('programList');
+      list.innerHTML = '';
+      program.forEach((cmd, i) => {
+        const li = document.createElement('li');
+        li.id = `cmd-${i}`;
+        let label, colorClass;
+        switch (cmd) {
+          case 'forward':
+            label = '⬆️ まえにすすむ';
+            colorClass = 'cmd-color-forward';
+            break;
+          case 'right':
+            label = '➡️ みぎをむく';
+            colorClass = 'cmd-color-right';
+            break;
+          case 'left':
+            label = '⬅️ ひだりをむく';
+            colorClass = 'cmd-color-left';
+            break;
+        }
+        li.className = colorClass;
+        li.innerHTML = `<span class="step-num">${i + 1}</span> ${label}
+          <button class="remove-btn" onclick="event.stopPropagation(); removeCommand(${i})" title="けす">✕</button>`;
+        li.onclick = () => removeCommand(i);
+        list.appendChild(li);
+      });
+    }
+
+    // ===== プログラム実行 =====
+    async function runProgram() {
+      if (isRunning) return;
+      if (program.length === 0) {
+        showMessage('info', '⚠️ コマンドをまず追加してね！');
+        return;
+      }
+
+      isRunning = true;
+      document.getElementById('runBtn').disabled = true;
+      hideMessage();
+
+      // スタート位置にリセット
+      const level = LEVELS[currentLevel];
+      for (let y = 0; y < 5; y++) {
+        for (let x = 0; x < 5; x++) {
+          if (level.grid[y][x] === 'S') {
+            playerX = x;
+            playerY = y;
+          }
+        }
+      }
+      playerDir = level.startDir;
+      renderGrid();
+
+      await sleep(400);
+
+      for (let i = 0; i < program.length; i++) {
+        // コマンドをハイライト
+        highlightCommand(i);
+        await sleep(100);
+
+        const cmd = program[i];
+        if (cmd === 'forward') {
+          const dir = DIRS[playerDir];
+          const nx = playerX + dir.dx;
+          const ny = playerY + dir.dy;
+
+          // 壁・範囲外チェック
+          if (nx < 0 || nx >= 5 || ny < 0 || ny >= 5 || level.grid[ny][nx] === 1) {
+            renderGrid();
+            await sleep(300);
+            showMessage('fail', '🧱 かべにぶつかった！ コマンドを見なおそう');
+            endRun();
+            return;
+          }
+
+          playerX = nx;
+          playerY = ny;
+        } else if (cmd === 'right') {
+          playerDir = (playerDir + 1) % 4;
+        } else if (cmd === 'left') {
+          playerDir = (playerDir + 3) % 4;
+        }
+
+        renderGrid();
+        await sleep(450);
+
+        // ゴール判定
+        if (level.grid[playerY][playerX] === 'G') {
+          showMessage('success', '🎉 やったね！宝物をみつけた！ すごい！');
+          await sleep(1500);
+
+          if (currentLevel < LEVELS.length - 1) {
+            showMessage('success', '🎉 つぎのレベルへ！');
+            await sleep(1000);
+            initLevel(currentLevel + 1);
+          } else {
+            showMessage('success', '🏆 ぜんぶのレベルをクリアしたよ！ キミはプログラミングの天才だ！ 🏆');
+          }
+          endRun();
+          return;
+        }
+      }
+
+      // 全コマンド終了、ゴールに着いていない
+      showMessage('fail', '😿 たどりつけなかった… もう少しコマンドを足してみよう！');
+      endRun();
+    }
+
+    function highlightCommand(index) {
+      document.querySelectorAll('.program-list li').forEach(li => li.classList.remove('highlight'));
+      const el = document.getElementById(`cmd-${index}`);
+      if (el) {
+        el.classList.add('highlight');
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function endRun() {
+      isRunning = false;
+      document.getElementById('runBtn').disabled = false;
+      document.querySelectorAll('.program-list li').forEach(li => li.classList.remove('highlight'));
+    }
+
+    // ===== ユーティリティ =====
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function clearProgram() {
+      if (isRunning) return;
+      program = [];
+      renderProgram();
+      hideMessage();
+    }
+
+    function resetLevel() {
+      if (isRunning) return;
+      initLevel(currentLevel);
+    }
+
+    function showMessage(type, text) {
+      const msg = document.getElementById('message');
+      msg.className = `message ${type}`;
+      msg.textContent = text;
+    }
+
+    function hideMessage() {
+      const msg = document.getElementById('message');
+      msg.className = 'message';
+      msg.textContent = '';
+    }
+
+    // ===== ゲーム開始 =====
+    initLevel(0);
+  </script>
+</body>
+</html>
