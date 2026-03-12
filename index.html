@@ -109,6 +109,8 @@
       padding: 20px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.2);
       min-width: 260px;
+      /* help-box との間隔は command-section 側で取るように変更 */
+      margin-bottom: 15px;
     }
 
     .command-section h2 {
@@ -316,7 +318,7 @@
       padding: 18px 22px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.2);
       max-width: 740px;
-      margin-top: 15px;
+      /* margin-top removed; spacing is handled by command-section */
       font-size: 0.92rem;
       line-height: 1.7;
     }
@@ -553,6 +555,7 @@
         return;
       }
       program.push(type);
+      soundAdd();
       renderProgram();
       hideMessage();
     }
@@ -561,6 +564,7 @@
     function removeCommand(index) {
       if (isRunning) return;
       program.splice(index, 1);
+      soundRemove();
       renderProgram();
     }
 
@@ -603,6 +607,7 @@
       }
 
       isRunning = true;
+      soundRun();
       document.getElementById('runBtn').disabled = true;
       hideMessage();
 
@@ -634,6 +639,7 @@
 
           // 壁・範囲外チェック
           if (nx < 0 || nx >= 5 || ny < 0 || ny >= 5 || level.grid[ny][nx] === 1) {
+            soundFail();
             renderGrid();
             await sleep(300);
             showMessage('fail', '🧱 かべにぶつかった！ コマンドを見なおそう');
@@ -643,10 +649,13 @@
 
           playerX = nx;
           playerY = ny;
+          soundMove();
         } else if (cmd === 'right') {
           playerDir = (playerDir + 1) % 4;
+          soundTurn();
         } else if (cmd === 'left') {
           playerDir = (playerDir + 3) % 4;
+          soundTurn();
         }
 
         renderGrid();
@@ -654,10 +663,12 @@
 
         // ゴール判定
         if (level.grid[playerY][playerX] === 'G') {
+          soundSuccess();
           showMessage('success', '🎉 やったね！宝物をみつけた！ すごい！');
           await sleep(1500);
 
           if (currentLevel < LEVELS.length - 1) {
+            soundLevelUp();
             showMessage('success', '🎉 つぎのレベルへ！');
             await sleep(1000);
             initLevel(currentLevel + 1);
@@ -670,6 +681,7 @@
       }
 
       // 全コマンド終了、ゴールに着いていない
+      soundFail();
       showMessage('fail', '😿 たどりつけなかった… もう少しコマンドを足してみよう！');
       endRun();
     }
@@ -716,6 +728,51 @@
       const msg = document.getElementById('message');
       msg.className = 'message';
       msg.textContent = '';
+    }
+
+    // ===== 効果音システム =====
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playSound(frequency, duration, type = 'sine', volume = 0.3) {
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = type;
+        osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function soundAdd() { playSound(880, 0.08, 'sine', 0.2); }
+    function soundRemove() { playSound(330, 0.1, 'triangle', 0.2); }
+    function soundMove() {
+      playSound(523, 0.07, 'sine', 0.15);
+    }
+    function soundTurn() {
+      playSound(740, 0.1, 'sine', 0.15);
+    }
+    function soundRun() {
+      playSound(440, 0.06, 'sine', 0.2);
+      setTimeout(() => playSound(550, 0.06, 'sine', 0.2), 60);
+      setTimeout(() => playSound(660, 0.1, 'sine', 0.25), 120);
+    }
+    function soundSuccess() {
+      playSound(784, 0.12, 'sine', 0.3);
+      setTimeout(() => playSound(988, 0.12, 'sine', 0.3), 120);
+      setTimeout(() => playSound(1175, 0.2, 'sine', 0.35), 240);
+    }
+    function soundFail() {
+      playSound(300, 0.15, 'sawtooth', 0.2);
+      setTimeout(() => playSound(220, 0.25, 'sawtooth', 0.2), 130);
+    }
+    function soundLevelUp() {
+      [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playSound(f, 0.12, 'sine', 0.3), i * 100));
     }
 
     // ===== ゲーム開始 =====
